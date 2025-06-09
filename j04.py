@@ -13,7 +13,7 @@ def read_dict(path: pathlib.Path) -> Dict[str, str]:
             with open(path, 'rb') as f:
                 return pickle.load(f)
         except Exception as ex:
-            print("Loading Contacts error: {ex}, creating new dictionary")
+            print("Loading Contacts error: {ex}, create new dictionary")
             return {}
     else:
         # Якщо довідника ще нема, то повертаємо поржній
@@ -34,7 +34,7 @@ def main():
     dict = read_dict(dict_path)
 
     # Декоратор записує словник у файл при вдалому завершенні функції
-    def writter(func):
+    def writer(func):
         def inner(name: str, phone: str) -> Tuple[bool, str]:
             res = func(name, phone)
             if res[0]:
@@ -50,20 +50,17 @@ def main():
             return res
         return inner    
     
-    # Декоратор приводить команди до нижнього регістру та намагається визначити коианду по перших двох літерах
+    # Декоратор приводить команди до нижнього регістру 
+    # та намагається визначити коианду по перших двох літерах
+    # і за кількістю параметрів
     def validate(func):
         def inner(prompt: str) -> List[str]:
             res: List[str] = func(prompt)
-            if len(res) > 0:
+            
+            if len(res) == 1:
                 res[0] = res[0].strip().lower()
-                if res[0].startswith('ad'):
-                    res[0] = 'add'
-                elif res[0].startswith('al'):
+                if res[0].startswith('al'):
                     res[0] = 'all'
-                elif res[0].startswith('ch'):
-                    res[0] = 'change'
-                elif res[0].startswith('ph'):
-                    res[0] = 'phone'
                 elif res[0].startswith('ex'):
                     res[0] = 'exit'
                 elif res[0].startswith('cl'):
@@ -74,24 +71,44 @@ def main():
                     res[0] = 'hello'
                 elif res[0].startswith('hi'):
                     res[0] = 'hello'
-                    
-            if len(res) > 1:
+                else:
+                    print(f"Unknown comand w/out parameters: {res[0]}")
+                    res[0] = 'error'
+            elif len(res) == 2:
+                if res[0].startswith('ph'):
+                    res[0] = 'phone'
+                else:
+                    print(f"Unknown comand w/ one parameter: {res[0]} {res[1]}")
+                    res[0] = 'error'
                 res[1] = res[1].strip()
-            if len(res) > 2:
+            elif len(res) == 3:
+                if res[0].startswith('ad'):
+                    res[0] = 'add'
+                elif res[0].startswith('ch'):
+                    res[0] = 'change'
+                else:
+                    print(f"Unknown comand w/ two parameters: {res[0]} {res[1]} {res[2]}")
+                    res[0] = 'error'
+                res[1] = res[1].strip()
                 res[2] = res[2].strip()
+            elif len(res) == 0:
+                res = ['error']
+            else:
+                print(f"Too many parameters: {' '.join(res)} ")
+                res[0] = 'error'
             
             return res
         return inner    
 
     # Handler: add name phone - додає новий контакт
-    @writter
+    @writer
     @verbose
     def add(name: str, phone: str) -> Tuple[bool, str]:
         dict[name] = phone
         return True, f"Phone {phone} to {name} added"
 
     # Handler: change name phone - змінює існуючий контакт
-    @writter
+    @writer
     @verbose
     def change(name: str, phone: str) -> Tuple[bool, str]:
         if name in dict:
@@ -140,8 +157,10 @@ def main():
                 break
             case ['hello']:
                 print("How can I help you?")
+            case ['error']:
+                print("")    
             case _:
-                print(f"in-correct command: {repl}")
+                print(f"Unexpected command: {' '.join(repl)}")
     
 
 if __name__ == "__main__":
